@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a1020" />
+  <title>SonicScope SPL</title>
+  <style>
+    :root {
+      --bg0:#060914; --bg1:#0a1020; --bg2:#101a31;
+      --text:#f2f6ff; --muted:rgba(242,246,255,0.72);
+      --accent:#6ee7ff; --accent2:#a78bfa; --accent3:#34d399; --danger:#fb7185;
+      --radius:20px; --shadow:0 12px 40px rgba(0,0,0,0.35);
+      --title-font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Avenir Next","Helvetica Neue",Arial,sans-serif;
+      --ui-font:"Twentieth Century","Century Gothic",Futura,Avenir,ui-sans-serif,system-ui,sans-serif;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+    }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html, body {
+      margin:0; min-height:100%; background:
+        radial-gradient(circle at 18% 20%, rgba(110,231,255,0.18), transparent 26%),
+        radial-gradient(circle at 84% 24%, rgba(167,139,250,0.17), transparent 22%),
+        radial-gradient(circle at 50% 100%, rgba(52,211,153,0.12), transparent 28%),
+        linear-gradient(160deg, var(--bg0), var(--bg1) 38%, var(--bg2));
+      color:var(--text); font-family:var(--ui-font);
+      -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    }
+    body { padding:calc(10px + var(--safe-top)) calc(12px + var(--safe-right)) calc(10px + var(--safe-bottom)) calc(12px + var(--safe-left)); }
+    .app { max-width:1200px; margin:0 auto; display:grid; gap:10px; }
+    .card {
+      background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06));
+      border:1px solid rgba(255,255,255,0.12);
+      backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+      box-shadow:var(--shadow); border-radius:var(--radius);
+    }
+    .header { padding:14px 16px 12px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-family:var(--title-font); font-size:clamp(1.25rem,4.8vw,2rem); line-height:1; font-weight:800; }
+    .subtitle { margin-top:6px; color:var(--muted); font-size:0.84rem; letter-spacing:0.04em; text-transform:uppercase; }
+    .btns { display:flex; gap:8px; flex-wrap:wrap; }
+    button, input { font:inherit; }
+    .btn {
+      border:1px solid rgba(255,255,255,0.16); border-radius:999px; min-height:42px; padding:10px 14px;
+      color:var(--text);
+      background:linear-gradient(135deg, rgba(110,231,255,0.18), rgba(167,139,250,0.18));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
+      cursor:pointer; touch-action:manipulation;
+    }
+    .btn.primary { background:linear-gradient(135deg, rgba(110,231,255,0.28), rgba(52,211,153,0.22)); }
+    .btn.stop { background:linear-gradient(135deg, rgba(251,113,133,0.28), rgba(167,139,250,0.22)); }
+    .btn.freeze { background:linear-gradient(135deg, rgba(255,199,94,0.26), rgba(167,139,250,0.20)); }
+    .btn.active { outline:2px solid rgba(255,255,255,0.4); }
+    .stats { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+    .stat { padding:12px 14px; min-width:0; }
+    .label { color:var(--muted); font-size:0.75rem; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:7px; }
+    .value { font-family:var(--title-font); font-size:clamp(1rem,4.4vw,1.35rem); font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .subvalue { margin-top:4px; color:var(--muted); font-size:0.76rem; }
+    .panel { padding:10px; }
+    .chart-wrap {
+      position:relative; min-height:320px; height:52vh; max-height:560px; border-radius:18px; overflow:hidden;
+      background:linear-gradient(180deg, rgba(7,12,28,0.82), rgba(10,16,32,0.68));
+      border:1px solid rgba(255,255,255,0.08);
+    }
+    canvas { width:100%; height:100%; display:block; }
+    .chart-overlay {
+      position:absolute; inset:12px 12px auto 12px; display:flex; justify-content:space-between; align-items:flex-start;
+      gap:12px; pointer-events:none; z-index:2;
+    }
+    .chart-title { font-family:var(--title-font); font-size:1rem; font-weight:700; }
+    .chart-meta { color:var(--muted); font-size:0.8rem; margin-top:3px; }
+    .chart-chip {
+      padding:8px 10px; border-radius:999px; background:rgba(7,12,28,0.62); border:1px solid rgba(255,255,255,0.10);
+      color:var(--text); font-size:0.78rem; white-space:nowrap;
+    }
+    .below { display:grid; grid-template-columns:1fr; gap:10px; margin-top:10px; }
+    .section { padding:14px; }
+    .section-title { margin:0 0 10px; font-family:var(--title-font); font-size:0.98rem; font-weight:800; }
+    .meter-value { font-family:var(--title-font); font-weight:800; font-size:1.6rem; margin-bottom:10px; }
+    .meter { position:relative; height:16px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden; border:1px solid rgba(255,255,255,0.10); margin-top:12px; }
+    .meter-fill { position:absolute; inset:0 auto 0 0; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent2), var(--danger)); transition:width 70ms linear; }
+    .meter-scale { display:flex; justify-content:space-between; color:var(--muted); font-size:0.72rem; margin-top:8px; }
+    .bands-list { display:grid; gap:8px; }
+    .row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 12px; border-radius:16px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); }
+    .row small { display:block; color:var(--muted); margin-top:3px; font-size:0.74rem; }
+    .badge { border-radius:999px; padding:7px 10px; font-size:0.78rem; background:rgba(110,231,255,0.14); border:1px solid rgba(110,231,255,0.20); white-space:nowrap; }
+    .bands-table-wrap{overflow-x:auto;border:1px solid rgba(255,255,255,0.08);border-radius:14px}
+    .bands-table{width:100%;border-collapse:collapse;font-size:12px}
+    .bands-table th,.bands-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.08);text-align:left}
+    .bands-table th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;background:rgba(255,255,255,0.04)}
+    .bands-table tbody tr:last-child td{border-bottom:none}
+    .control-row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; }
+    .control-row label { color:var(--muted); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; }
+    .control-row .out { font-family:var(--title-font); font-size:0.9rem; font-weight:800; }
+    input[type="range"] { width:100%; accent-color:#6ee7ff; }
+    .footer-note { padding:10px 14px; font-size:0.78rem; color:var(--muted); line-height:1.35; }
+    .modal { position:fixed; inset:0; z-index:50; display:none; background:rgba(3,7,18,0.94); padding:12px; }
+    .modal.open { display:block; }
+    .modal-shell { height:100%; display:grid; grid-template-rows:auto 1fr; gap:10px; }
+    .modal-top { display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap; }
+    .modal-graph { min-height:0; position:relative; border-radius:24px; overflow:hidden; background:linear-gradient(180deg, rgba(7,12,28,0.92), rgba(10,16,32,0.78)); border:1px solid rgba(255,255,255,0.10); box-shadow:var(--shadow); }
+    @media (min-width:900px) {
+      .stats { grid-template-columns:repeat(4, minmax(0,1fr)); }
+      .below { grid-template-columns:1fr 1fr 1fr; }
+      .chart-wrap { min-height:420px; height:54vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card header">
+      <div>
+        <h1>SonicScope SPL</h1>
+        <div class="subtitle">Live microphone spectrum analyzer</div>
+      </div>
+      <div class="btns">
+        <button class="btn primary" id="startBtn" type="button">Start mic</button>
+        <button class="btn stop" id="stopBtn" type="button">Stop</button>
+        <button class="btn freeze" id="freezeBtn" type="button">Freeze</button>
+        <button class="btn" id="saveGraphBtn" type="button">Save graph</button>
+        <button class="btn" id="saveDataBtn" type="button">Save graph + data</button>
+        <button class="btn" id="expandBtn" type="button">Graph full screen</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="card stat">
+        <div class="label">Overall Level</div>
+        <div class="value" id="splValue">-- dB</div>
+        <div class="subvalue" id="statusText">Idle</div>
+      </div>
+      <div class="card stat">
+        <div class="label">Peak Frequency</div>
+        <div class="value" id="peakFreq">-- Hz</div>
+        <div class="subvalue" id="peakFreqDb">-- dB / band</div>
+      </div>
+      <div class="card stat">
+        <div class="label">Noise Floor</div>
+        <div class="value" id="noiseFloor">-- dB</div>
+        <div class="subvalue" id="sampleRateText">Awaiting permission</div>
+      </div>
+      <div class="card stat">
+        <div class="label">Graph State</div>
+        <div class="value" id="freezeState">Live</div>
+        <div class="subvalue" id="chartReadout">Waiting for microphone…</div>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <div class="chart-wrap">
+        <div class="chart-overlay">
+          <div>
+            <div class="chart-title">Frequency Spectrum</div>
+            <div class="chart-meta">20 Hz to 20 kHz · portrait or landscape</div>
+          </div>
+          <div class="chart-chip" id="liveChip">Ready</div>
+        </div>
+        <canvas id="spectrumCanvas"></canvas>
+      </div>
+
+      <div class="below">
+        <div class="card section">
+          <div class="section-title">Level Meter</div>
+          <div class="meter-value" id="meterValue">-- dB</div>
+          <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+          <div class="meter-scale"><span>30</span><span>60</span><span>90</span><span>120</span></div>
+        </div>
+
+        <div class="card section">
+          <div class="section-title">Strongest Bands</div>
+          <div class="bands-table-wrap">
+            <table class="bands-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Frequency</th>
+                  <th>Note</th>
+                  <th>Band range</th>
+                  <th>Level</th>
+                </tr>
+              </thead>
+              <tbody id="topBands"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card section">
+          <div class="section-title">Controls</div>
+          <div style="display:grid;gap:12px;">
+            <div>
+              <div class="control-row">
+                <label for="calibration">Calibration offset</label>
+                <div class="out" id="calOut">+0.0 dB</div>
+              </div>
+              <input id="calibration" type="range" min="-30" max="30" step="0.1" value="0">
+            </div>
+            <div>
+              <div class="control-row">
+                <label for="smoothing">Spectrum smoothing</label>
+                <div class="out" id="smoothOut">0.72</div>
+              </div>
+              <input id="smoothing" type="range" min="0" max="0.95" step="0.01" value="0.72">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+
+  <div class="modal" id="graphModal">
+    <div class="modal-shell">
+      <div class="modal-top">
+        <div>
+          <h1 style="font-size:clamp(1.1rem,4.8vw,1.8rem)">Expanded Graph</h1>
+          <div class="subtitle">Full-screen spectrum view</div>
+        </div>
+        <div class="btns">
+          <button class="btn freeze" id="modalFreezeBtn" type="button">Freeze</button>
+          <button class="btn" id="modalSaveGraphBtn" type="button">Save graph</button>
+          <button class="btn" id="modalSaveDataBtn" type="button">Save graph + data</button>
+          <button class="btn" id="closeModalBtn" type="button">Close graph</button>
+        </div>
+      </div>
+      <div class="modal-graph">
+        <div class="chart-overlay">
+          <div>
+            <div class="chart-title">Frequency Spectrum</div>
+            <div class="chart-meta">Expanded view</div>
+          </div>
+          <div class="chart-chip" id="modalChip">Ready</div>
+        </div>
+        <canvas id="modalCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const freezeBtn = document.getElementById('freezeBtn');
+    const saveGraphBtn = document.getElementById('saveGraphBtn');
+    const saveDataBtn = document.getElementById('saveDataBtn');
+    const expandBtn = document.getElementById('expandBtn');
+    const modalFreezeBtn = document.getElementById('modalFreezeBtn');
+    const modalSaveGraphBtn = document.getElementById('modalSaveGraphBtn');
+    const modalSaveDataBtn = document.getElementById('modalSaveDataBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const graphModal = document.getElementById('graphModal');
+
+    const splValue = document.getElementById('splValue');
+    const peakFreq = document.getElementById('peakFreq');
+    const peakFreqDb = document.getElementById('peakFreqDb');
+    const noiseFloor = document.getElementById('noiseFloor');
+    const statusText = document.getElementById('statusText');
+    const sampleRateText = document.getElementById('sampleRateText');
+    const chartReadout = document.getElementById('chartReadout');
+    const meterValue = document.getElementById('meterValue');
+    const meterFill = document.getElementById('meterFill');
+    const topBands = document.getElementById('topBands');
+    const calibration = document.getElementById('calibration');
+    const calOut = document.getElementById('calOut');
+    const smoothing = document.getElementById('smoothing');
+    const smoothOut = document.getElementById('smoothOut');
+    const liveChip = document.getElementById('liveChip');
+    const modalChip = document.getElementById('modalChip');
+    const freezeState = document.getElementById('freezeState');
+
+    const canvas = document.getElementById('spectrumCanvas');
+    const modalCanvas = document.getElementById('modalCanvas');
+    const ctx2d = canvas.getContext('2d');
+    const modalCtx2d = modalCanvas.getContext('2d');
+
+    let audioContext, analyser, source, micStream, freqData, timeData, animationId;
+    let running = false, frozen = false, starting = false, calibrationOffset = 0;
+    let lastFrame = null;
+    const minHz = 20;
+    const maxHzDefault = 20000;
+
+    function fitCanvas(el, ctx) {
+      const rect = el.getBoundingClientRect();
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const w = Math.max(1, Math.round(rect.width * dpr));
+      const h = Math.max(1, Math.round(rect.height * dpr));
+      if (el.width !== w || el.height !== h) { el.width = w; el.height = h; }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function fmtDb(v) { return Number.isFinite(v) ? `${v.toFixed(1)} dB` : '-- dB'; }
+    function fmtHz(v) {
+      if (!Number.isFinite(v) || v <= 0) return '-- Hz';
+      if (v >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 1 : 2)} kHz`;
+      return `${Math.round(v)} Hz`;
+    }
+
+    function logMap(freq, width, nyquist) {
+      const hi = Math.min(maxHzDefault, nyquist);
+      const safeFreq = Math.min(Math.max(freq, minHz), hi);
+      const a = Math.log10(minHz), b = Math.log10(hi);
+      return ((Math.log10(safeFreq) - a) / (b - a)) * width;
+    }
+
+    function hzFromBin(i, sampleRate, fftSize) { return i * sampleRate / fftSize; }
+    function binFromHz(hz, sampleRate, fftSize) {
+      return Math.max(0, Math.min((fftSize / 2) - 1, Math.round(hz * fftSize / sampleRate)));
+    }
+
+    function drawGrid(targetCtx, width, height, hi) {
+      const freqs = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].filter(f => f <= hi);
+      const dbTicks = [-100, -80, -60, -40, -20, 0];
+      targetCtx.save();
+      targetCtx.lineWidth = 1;
+      targetCtx.strokeStyle = 'rgba(255,255,255,0.08)';
+      targetCtx.fillStyle = 'rgba(242,246,255,0.55)';
+      targetCtx.font = '12px "Twentieth Century","Century Gothic",Futura,Avenir,sans-serif';
+      freqs.forEach(f => {
+        const x = logMap(f, width, hi * 2);
+        targetCtx.beginPath(); targetCtx.moveTo(x, 0); targetCtx.lineTo(x, height); targetCtx.stroke();
+        targetCtx.fillText(f >= 1000 ? `${f/1000}k` : `${f}`, x + 4, height - 10);
+      });
+      dbTicks.forEach(db => {
+        const y = ((db + 110) / 100) * height;
+        const py = height - y;
+        targetCtx.beginPath(); targetCtx.moveTo(0, py); targetCtx.lineTo(width, py); targetCtx.stroke();
+        targetCtx.fillText(`${db}`, 8, py - 6);
+      });
+      targetCtx.restore();
+    }
+
+    function drawIdleTo(targetCtx, targetCanvas) {
+      fitCanvas(targetCanvas, targetCtx);
+      const width = targetCanvas.clientWidth, height = targetCanvas.clientHeight;
+      targetCtx.clearRect(0, 0, width, height);
+      drawGrid(targetCtx, width, height, Math.min(maxHzDefault, 24000));
+      targetCtx.save();
+      targetCtx.fillStyle = 'rgba(242,246,255,0.75)';
+      targetCtx.font = '700 22px -apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif';
+      targetCtx.textAlign = 'center';
+      targetCtx.fillText('Tap Start mic to begin live analysis', width / 2, height / 2);
+      targetCtx.restore();
+    }
+
+    function drawSpectrumTo(targetCtx, targetCanvas, frame) {
+      fitCanvas(targetCanvas, targetCtx);
+      const width = targetCanvas.clientWidth, height = targetCanvas.clientHeight;
+      targetCtx.clearRect(0, 0, width, height);
+      drawGrid(targetCtx, width, height, frame.stats.hi);
+
+      const sr = frame.sampleRate, fft = frame.fftSize, hi = frame.stats.hi;
+      const area = new Path2D(), line = new Path2D();
+      let started = false;
+      for (let i = frame.stats.loBin; i <= frame.stats.hiBin; i++) {
+        const hz = hzFromBin(i, sr, fft);
+        if (hz < minHz || hz > hi) continue;
+        const x = logMap(hz, width, sr / 2);
+        const norm = Math.max(0, Math.min(1, (frame.freq[i] + 110) / 100));
+        const y = height - norm * height;
+        if (!started) { line.moveTo(x, y); area.moveTo(x, height); area.lineTo(x, y); started = true; }
+        else { line.lineTo(x, y); area.lineTo(x, y); }
+      }
+      area.lineTo(width, height); area.closePath();
+
+      const gradient = targetCtx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, 'rgba(110,231,255,0.38)');
+      gradient.addColorStop(0.55, 'rgba(167,139,250,0.18)');
+      gradient.addColorStop(1, 'rgba(52,211,153,0.05)');
+      targetCtx.fillStyle = gradient; targetCtx.fill(area);
+
+      const stroke = targetCtx.createLinearGradient(0, 0, width, 0);
+      stroke.addColorStop(0, '#6ee7ff'); stroke.addColorStop(0.5, '#a78bfa'); stroke.addColorStop(1, '#34d399');
+      targetCtx.strokeStyle = stroke; targetCtx.lineWidth = 2.5; targetCtx.stroke(line);
+
+      const peakX = logMap(frame.stats.peakHzValue, width, sr / 2);
+      const peakY = height - Math.max(0, Math.min(1, (frame.stats.peakDb + 110) / 100)) * height;
+      targetCtx.save();
+      targetCtx.strokeStyle = 'rgba(255,255,255,0.42)';
+      targetCtx.setLineDash([5, 5]);
+      targetCtx.beginPath(); targetCtx.moveTo(peakX, 0); targetCtx.lineTo(peakX, height); targetCtx.stroke();
+      targetCtx.setLineDash([]);
+      targetCtx.fillStyle = '#f8fafc';
+      targetCtx.beginPath(); targetCtx.arc(peakX, peakY, 4, 0, Math.PI * 2); targetCtx.fill();
+      targetCtx.restore();
+    }
+
+    function resizeCanvases() {
+      if (lastFrame) {
+        drawSpectrumTo(ctx2d, canvas, lastFrame);
+        if (graphModal.classList.contains('open')) drawSpectrumTo(modalCtx2d, modalCanvas, lastFrame);
+      } else {
+        drawIdleTo(ctx2d, canvas);
+        drawIdleTo(modalCtx2d, modalCanvas);
+      }
+    }
+
+    function updateUiControls() {
+      calibrationOffset = parseFloat(calibration.value);
+      calOut.textContent = `${calibrationOffset >= 0 ? '+' : ''}${calibrationOffset.toFixed(1)} dB`;
+      smoothOut.textContent = Number(smoothing.value).toFixed(2);
+      if (analyser) analyser.smoothingTimeConstant = Number(smoothing.value);
+    }
+
+    function setStatus(main, sub, readout) {
+      if (main) statusText.textContent = main;
+      if (sub) sampleRateText.textContent = sub;
+      if (readout) chartReadout.textContent = readout;
+      const state = frozen ? 'Frozen' : (running ? 'Live' : 'Ready');
+      freezeState.textContent = state;
+      liveChip.textContent = state;
+      modalChip.textContent = state;
+    }
+
+    function syncFreezeButtons() {
+      const txt = frozen ? 'Unfreeze' : 'Freeze';
+      freezeBtn.textContent = txt;
+      modalFreezeBtn.textContent = txt;
+      freezeBtn.classList.toggle('active', frozen);
+      modalFreezeBtn.classList.toggle('active', frozen);
+    }
+
+    function canUseMic() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
+
+    async function startAudio(ev) {
+      ev?.preventDefault?.();
+      if (running || starting) return;
+      starting = true;
+      try {
+        if (!canUseMic()) {
+          setStatus('Unsupported', 'This browser cannot access the microphone here', 'Microphone API unavailable');
+          alert('This browser context does not support microphone access. Open in Safari over HTTPS.');
+          return;
+        }
+        if (!window.isSecureContext && location.protocol !== 'file:') {
+          setStatus('Blocked', 'Requires HTTPS for microphone access', 'Open this app from a secure URL');
+          alert('Microphone access requires HTTPS. Please host this file on a secure site.');
+          return;
+        }
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') await audioContext.resume();
+
+        setStatus('Starting', 'Requesting microphone permission…', 'Waiting for microphone permission…');
+
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+          video: false
+        });
+
+        analyser = audioContext.createAnalyser();
+        analyser.minDecibels = -110;
+        analyser.maxDecibels = -10;
+        analyser.smoothingTimeConstant = Number(smoothing.value);
+        analyser.fftSize = 4096;
+
+        source = audioContext.createMediaStreamSource(micStream);
+        source.connect(analyser);
+        freqData = new Float32Array(analyser.frequencyBinCount);
+        timeData = new Float32Array(analyser.fftSize);
+
+        running = true;
+        frozen = false;
+        updateUiControls();
+        syncFreezeButtons();
+        setStatus('Live', `${Math.round(audioContext.sampleRate)} Hz sample rate`, 'Listening…');
+        resizeCanvases();
+        draw();
+      } catch (err) {
+        console.error(err);
+        const detail = (err && err.name) ? err.name : 'Error';
+        if (detail === 'NotAllowedError') {
+          setStatus('Permission denied', 'Allow mic access in browser settings', 'Microphone permission was denied');
+          alert('Microphone permission was denied. Please allow mic access and try again.');
+        } else if (detail === 'NotFoundError') {
+          setStatus('No microphone', 'No input device was found', 'No microphone available');
+          alert('No microphone was found on this device.');
+        } else {
+          setStatus('Error', 'Mic permission or secure context issue', 'Microphone access failed');
+          alert('Microphone access failed. Open over HTTPS, then allow microphone access.');
+        }
+      } finally {
+        starting = false;
+      }
+    }
+
+    function stopAudio(ev) {
+      ev?.preventDefault?.();
+      running = false; frozen = false;
+      cancelAnimationFrame(animationId);
+      if (source) { try { source.disconnect(); } catch(e) {} }
+      if (micStream) micStream.getTracks().forEach(track => track.stop());
+      if (audioContext) audioContext.close().catch(() => {});
+      audioContext = analyser = source = micStream = freqData = timeData = null;
+      lastFrame = null;
+      splValue.textContent = '-- dB';
+      meterValue.textContent = '-- dB';
+      peakFreq.textContent = '-- Hz';
+      peakFreqDb.textContent = '-- dB / band';
+      noiseFloor.textContent = '-- dB';
+      meterFill.style.width = '0%';
+      topBands.innerHTML = '';
+      setStatus('Idle', 'Awaiting permission', 'Waiting for microphone…');
+      syncFreezeButtons();
+      drawIdleTo(ctx2d, canvas);
+      drawIdleTo(modalCtx2d, modalCanvas);
+    }
+
+    function toggleFreeze(ev) {
+      ev?.preventDefault?.();
+      if (!running || !lastFrame) return;
+      frozen = !frozen;
+      syncFreezeButtons();
+      setStatus('Live', `${Math.round(audioContext.sampleRate)} Hz sample rate`, frozen ? 'Display frozen · tap Unfreeze to resume' : 'Listening…');
+    }
+
+    function estimateOverallSPLFromRMS() {
+      analyser.getFloatTimeDomainData(timeData);
+      let sum = 0;
+      for (let i = 0; i < timeData.length; i++) { const v = timeData[i]; sum += v * v; }
+      const rms = Math.sqrt(sum / timeData.length);
+      const dbfs = 20 * Math.log10(Math.max(rms, 1e-8));
+      return dbfs + 100 + calibrationOffset;
+    }
+
+    function spectrumStats() {
+      analyser.getFloatFrequencyData(freqData);
+      const sr = audioContext.sampleRate, fft = analyser.fftSize, nyquist = sr / 2;
+      const hi = Math.min(maxHzDefault, nyquist);
+      const loBin = binFromHz(minHz, sr, fft), hiBin = binFromHz(hi, sr, fft);
+      let peakDb = -160, peakBin = loBin;
+      const values = [];
+      for (let i = loBin; i <= hiBin; i++) {
+        const db = freqData[i];
+        values.push(db);
+        if (db > peakDb) { peakDb = db; peakBin = i; }
+      }
+      values.sort((a,b) => a-b);
+      const medianDb = values[Math.floor(values.length / 2)] ?? -160;
+      return { peakDb, peakHzValue: hzFromBin(peakBin, sr, fft), medianDb, loBin, hiBin, hi };
+    }
+
+    function topBandRows(loBin, hiBin, sr, fft) {
+      const candidates = [];
+      const bucketCount = 24;
+      const hi = Math.min(maxHzDefault, sr / 2);
+      for (let b = 0; b < bucketCount; b++) {
+        const t0 = b / bucketCount, t1 = (b + 1) / bucketCount;
+        const f0 = 10 ** (Math.log10(minHz) + t0 * (Math.log10(hi) - Math.log10(minHz)));
+        const f1 = 10 ** (Math.log10(minHz) + t1 * (Math.log10(hi) - Math.log10(minHz)));
+        const start = Math.max(loBin, binFromHz(f0, sr, fft));
+        const end = Math.min(hiBin, binFromHz(f1, sr, fft));
+        if (end <= start) continue;
+        let maxDb = -160, maxBin = start;
+        for (let i = start; i <= end; i++) {
+          if (freqData[i] > maxDb) { maxDb = freqData[i]; maxBin = i; }
+        }
+        candidates.push({ hz: hzFromBin(maxBin, sr, fft), db: maxDb, range: `${fmtHz(f0)}–${fmtHz(f1)}` });
+      }
+      candidates.sort((a,b) => b.db - a.db);
+      return candidates.slice(0, 5);
+    }
+
+    function updateReadouts(overallDb, stats) {
+      splValue.textContent = fmtDb(overallDb);
+      meterValue.textContent = fmtDb(overallDb);
+      peakFreq.textContent = fmtHz(stats.peakHzValue);
+      peakFreqDb.textContent = `${stats.peakDb.toFixed(1)} dB / band`;
+      noiseFloor.textContent = fmtDb(stats.medianDb + 100 + calibrationOffset);
+      const meterPct = Math.max(0, Math.min(100, ((overallDb - 30) / 90) * 100));
+      meterFill.style.width = `${meterPct}%`;
+      chartReadout.textContent = `${fmtDb(overallDb)} overall · peak ${fmtHz(stats.peakHzValue)}`;
+      const rows = topBandRows(stats.loBin, stats.hiBin, audioContext.sampleRate, analyser.fftSize);
+      topBands.innerHTML = rows.map((row, idx) => `
+        <div class="row">
+          <div><div>${idx + 1}. ${fmtHz(row.hz)}</div><small>${row.range}</small></div>
+          <div class="badge">${row.db.toFixed(1)} dB</div>
+        </div>`).join('');
+    }
+
+    function draw() {
+      if (!running || !analyser || !audioContext) return;
+      if (!frozen) {
+        const overallDb = estimateOverallSPLFromRMS();
+        const stats = spectrumStats();
+        lastFrame = {
+          overallDb, stats, sampleRate: audioContext.sampleRate, fftSize: analyser.fftSize,
+          freq: Float32Array.from(freqData)
+        };
+        updateReadouts(overallDb, stats);
+        drawSpectrumTo(ctx2d, canvas, lastFrame);
+        if (graphModal.classList.contains('open')) drawSpectrumTo(modalCtx2d, modalCanvas, lastFrame);
+      }
+      animationId = requestAnimationFrame(draw);
+    }
+
+    function openGraphModal(ev) {
+      ev?.preventDefault?.();
+      graphModal.classList.add('open');
+      resizeCanvases();
+    }
+    function closeGraphModal(ev) {
+      ev?.preventDefault?.();
+      graphModal.classList.remove('open');
+      resizeCanvases();
+    }
+
+
+    
+    function noteFromFrequency(freq){
+      if (!Number.isFinite(freq) || freq <= 0) return null;
+      const midi = Math.round(69 + 12 * Math.log2(freq / 440));
+      const names = ['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+      const noteFreq = 440 * Math.pow(2, (midi - 69)/12);
+      const cents = 1200 * Math.log2(freq / noteFreq);
+      const name = names[(midi % 12 + 12) % 12] + (Math.floor(midi / 12) - 1);
+      return {name, cents};
+    }
+
+function timestampStamp() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+    }
+
+    function currentRowsForExport() {
+      if (!lastFrame || !audioContext || !analyser) return [];
+      const rows = topBandRows(lastFrame.stats.loBin, lastFrame.stats.hiBin, lastFrame.sampleRate, lastFrame.fftSize);
+      return rows.map((row, idx) => {
+        const note = noteFromFrequency(row.hz);
+        return {
+          rank: idx + 1,
+          frequency_hz: Math.round(row.hz * 10) / 10,
+          note: note ? `${note.name} (${note.cents.toFixed(0)}¢)` : '--',
+          band_range: row.range,
+          level_db_band: Math.round(row.db * 10) / 10
+        };
+      });
+    }
+
+    function exportSnapshotCanvas() {
+      if (!lastFrame) {
+        alert('Freeze or start the analyzer first so there is a graph to save.');
+        return null;
+      }
+      const sourceCanvas = graphModal.classList.contains('open') ? modalCanvas : canvas;
+      const exportCanvas = document.createElement('canvas');
+      const width = Math.max(1400, sourceCanvas.width);
+      const height = Math.max(900, sourceCanvas.height);
+      exportCanvas.width = width;
+      exportCanvas.height = height;
+      const ectx = exportCanvas.getContext('2d');
+
+      const gradient = ectx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, '#060914');
+      gradient.addColorStop(0.42, '#0a1020');
+      gradient.addColorStop(1, '#101a31');
+      ectx.fillStyle = gradient;
+      ectx.fillRect(0, 0, width, height);
+
+      ectx.drawImage(sourceCanvas, 0, 0, width, height);
+
+      ectx.fillStyle = 'rgba(255,255,255,0.96)';
+      ectx.font = '800 38px -apple-system,BlinkMacSystemFont,"SF Pro Display","Avenir Next",Arial,sans-serif';
+      ectx.fillText('SonicScope SPL Snapshot', 34, 52);
+
+      ectx.fillStyle = 'rgba(242,246,255,0.78)';
+      ectx.font = '22px "Twentieth Century","Century Gothic",Futura,Avenir,sans-serif';
+      ectx.fillText(`Overall: ${splValue.textContent}   Peak: ${peakFreq.textContent}   State: ${freezeState.textContent}`, 34, 86);
+      ectx.fillText(`Noise floor: ${noiseFloor.textContent}   ${sampleRateText.textContent}`, 34, 116);
+
+      return exportCanvas;
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function saveGraphOnly() {
+      const exportCanvas = exportSnapshotCanvas();
+      if (!exportCanvas) return;
+      exportCanvas.toBlob(blob => {
+        if (!blob) return;
+        downloadBlob(blob, `sonicscope_graph_${timestampStamp()}.png`);
+      }, 'image/png');
+    }
+
+    function saveGraphAndData() {
+      if (!lastFrame) {
+        alert('Freeze or start the analyzer first so there is graph data to save.');
+        return;
+      }
+
+      const rows = currentRowsForExport();
+      const exportCanvas = exportSnapshotCanvas();
+      if (!exportCanvas) return;
+
+      const graphDataUrl = exportCanvas.toDataURL('image/png');
+      const escapedRows = rows.map(r => `
+        <tr>
+          <td>${r.rank}</td>
+          <td>${r.frequency_hz}</td>
+          <td>${r.note}</td>
+          <td>${r.band_range}</td>
+          <td>${r.level_db_band}</td>
+        </tr>
+      `).join('');
+
+      const w = window.open('', '_blank');
+      if (!w) {
+        alert('Popup blocked. Allow popups for this site to print or save graph + data.');
+        return;
+      }
+
+      const htmlDoc = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SonicScope Graph + Data</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --ink:#111827;
+    --muted:#4b5563;
+    --line:#d1d5db;
+    --soft:#eef2f7;
+    --soft2:#f8fafc;
+    --accent:#0f172a;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:Arial,Helvetica,sans-serif;
+    margin:24px;
+    color:var(--ink);
+    background:#fff;
+  }
+  .sheet{
+    max-width:1100px;
+    margin:0 auto;
+  }
+  .masthead{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:18px;
+    border-bottom:3px solid var(--accent);
+    padding-bottom:14px;
+    margin-bottom:18px;
+  }
+  .title{
+    margin:0;
+    font-size:30px;
+    line-height:1.05;
+    letter-spacing:0.01em;
+  }
+  .subtitle{
+    margin:6px 0 0;
+    color:var(--muted);
+    font-size:14px;
+  }
+  .stamp{
+    text-align:right;
+    font-size:13px;
+    color:var(--muted);
+    line-height:1.45;
+    min-width:220px;
+  }
+  .summary-grid{
+    display:grid;
+    grid-template-columns:repeat(5, minmax(0,1fr));
+    gap:10px;
+    margin:16px 0 18px;
+  }
+  .summary-card{
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 12px;
+    background:var(--soft2);
+  }
+  .summary-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  .summary-value{
+    font-size:18px;
+    font-weight:700;
+    line-height:1.15;
+  }
+  .graph-wrap{
+    border:1px solid var(--line);
+    border-radius:16px;
+    overflow:hidden;
+    background:#fff;
+    margin-bottom:18px;
+  }
+  img{
+    width:100%;
+    display:block;
+  }
+  .section-title{
+    margin:12px 0 8px;
+    font-size:16px;
+  }
+  table{
+    border-collapse:collapse;
+    width:100%;
+    background:#fff;
+  }
+  th,td{
+    border:1px solid var(--line);
+    padding:7px 8px;
+    text-align:left;
+    font-size:13px;
+    vertical-align:top;
+  }
+  th{
+    background:var(--soft);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+  }
+  .notes{
+    margin-top:16px;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:var(--soft2);
+    color:var(--muted);
+    font-size:13px;
+    line-height:1.45;
+  }
+  .actions{
+    margin:0 0 18px;
+  }
+  .actions button{
+    appearance:none;
+    border:1px solid var(--line);
+    background:#fff;
+    border-radius:999px;
+    padding:10px 14px;
+    margin-right:8px;
+    cursor:pointer;
+    font-size:14px;
+  }
+  @media (max-width:860px){
+    .masthead{flex-direction:column}
+    .stamp{text-align:left;min-width:0}
+    .summary-grid{grid-template-columns:repeat(2, minmax(0,1fr))}
+  }
+  @media print {
+    @page { size:auto; margin:8mm; }
+    body{margin:0}
+    .actions{display:none}
+    .sheet{max-width:none}
+    .masthead{padding-bottom:10px;margin-bottom:12px}
+    .title{font-size:22px}
+    .subtitle{font-size:12px}
+    .stamp{font-size:12px}
+    .summary-grid{grid-template-columns:repeat(5, minmax(0,1fr)); gap:8px; margin:12px 0 12px}
+    .summary-card{padding:8px 10px}
+    .summary-label{font-size:10px; margin-bottom:4px}
+    .summary-value{font-size:15px}
+    .graph-wrap{break-inside:avoid; margin-bottom:10px}
+    .section-title{margin:8px 0 5px; font-size:14px}
+    table{break-inside:auto}
+    th,td{padding:5px 6px; font-size:11px}
+    tr{break-inside:avoid}
+    .summary-grid{transform:scale(0.98); transform-origin:top left; width:102%}
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="actions">
+      <button onclick="window.print()">Print or Save PDF</button>
+    </div>
+
+    <div class="masthead">
+      <div>
+        <h1 class="title">SonicScope Graph + Data Report</h1>
+        <div class="subtitle">Snapshot export from the live SPL and spectrum analyzer</div>
+      </div>
+      <div class="stamp">
+        <div><strong>Saved:</strong> ${new Date().toLocaleString()}</div>
+        <div><strong>Display state:</strong> ${freezeState.textContent}</div>
+        <div><strong>Source:</strong> Built-in microphone snapshot</div>
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-label">Overall level</div>
+        <div class="summary-value">${splValue.textContent}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Peak frequency</div>
+        <div class="summary-value">${peakFreq.textContent}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Peak level</div>
+        <div class="summary-value">${peakFreqDb.textContent}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Noise floor</div>
+        <div class="summary-value">${noiseFloor.textContent}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Sample / status</div>
+        <div class="summary-value" style="font-size:15px">${sampleRateText.textContent}</div>
+      </div>
+    </div>
+
+    <div class="graph-wrap">
+      <img src="${graphDataUrl}" alt="SonicScope graph snapshot">
+    </div>
+
+    <h2 class="section-title">Strongest Bands</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Frequency (Hz)</th>
+          <th>Note</th>
+          <th>Band range</th>
+          <th>Level (dB / band)</th>
+        </tr>
+      </thead>
+      <tbody>${escapedRows}</tbody>
+    </table>
+
+
+  </div>
+  <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+</body>
+</html>`;
+      w.document.open();
+      w.document.write(htmlDoc);
+      w.document.close();
+    }
+
+    startBtn.addEventListener('click', startAudio);
+    stopBtn.addEventListener('click', stopAudio);
+    freezeBtn.addEventListener('click', toggleFreeze);
+    saveGraphBtn.addEventListener('click', saveGraphOnly);
+    saveDataBtn.addEventListener('click', saveGraphAndData);
+    modalFreezeBtn.addEventListener('click', toggleFreeze);
+    modalSaveGraphBtn.addEventListener('click', saveGraphOnly);
+    modalSaveDataBtn.addEventListener('click', saveGraphAndData);
+    expandBtn.addEventListener('click', openGraphModal);
+    closeModalBtn.addEventListener('click', closeGraphModal);
+    calibration.addEventListener('input', updateUiControls);
+    smoothing.addEventListener('input', updateUiControls);
+    window.addEventListener('resize', resizeCanvases);
+    window.addEventListener('orientationchange', () => setTimeout(resizeCanvases, 120));
+    document.addEventListener('visibilitychange', () => setTimeout(resizeCanvases, 120));
+
+    updateUiControls();
+    setStatus('Ready', 'Awaiting microphone permission', 'Tap Start mic to begin');
+    syncFreezeButtons();
+    drawIdleTo(ctx2d, canvas);
+    drawIdleTo(modalCtx2d, modalCanvas);
+  </script>
+</body>
+</html>
